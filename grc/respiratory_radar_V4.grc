@@ -319,60 +319,100 @@ blocks:
   id: epy_block
   parameters:
     _source_code: "import numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n\
-      \    \"\"\"FFT BPM estimator (Blackman-Harris window + linear detrend).\"\"\"\
-      \n\n    def __init__(self, samp_rate=500.0, window_sec=20.0,\n             \
-      \    fft_size=8192, f_low=0.1, f_high=0.5):\n        gr.sync_block.__init__(self,\
-      \ name='FFT BPM Estimator',\n                               in_sig=[np.float32],\
-      \ out_sig=[np.float32])\n        self.samp_rate = float(samp_rate)\n       \
-      \ self.window_len = int(self.samp_rate * float(window_sec))\n        self.fft_size\
-      \ = int(fft_size)\n        self.buffer = np.zeros(self.window_len, dtype=np.float32)\n\
-      \        self.buf_idx = 0\n        self.filled = False\n        self.current_bpm\
-      \ = 0.0\n        self.freqs = np.fft.rfftfreq(self.fft_size, d=1.0/self.samp_rate)\n\
-      \        self.band_mask = (self.freqs >= float(f_low)) & (self.freqs <= float(f_high))\n\
-      \        N = self.window_len\n        n_arr = np.arange(N, dtype=np.float64)\n\
-      \        self.win = (0.35875\n                    - 0.48829 * np.cos(2.0*np.pi*n_arr/(N-1))\n\
-      \                    + 0.14128 * np.cos(4.0*np.pi*n_arr/(N-1))\n           \
-      \         - 0.01168 * np.cos(6.0*np.pi*n_arr/(N-1))).astype(np.float32)\n  \
-      \      self.bin_hz = self.freqs[1] - self.freqs[0]\n        self.detrend_t =\
-      \ np.arange(self.window_len, dtype=np.float32)\n        self.update_every =\
-      \ int(self.samp_rate * float(window_sec))\n        self.since_update = 0\n\n\
-      \    def _compute_bpm(self):\n        sig = np.concatenate((self.buffer[self.buf_idx:],\
-      \ self.buffer[:self.buf_idx]))\n        coef = np.polyfit(self.detrend_t, sig,\
-      \ 1)\n        sig = sig - (coef[0] * self.detrend_t + coef[1])\n        spec\
-      \ = np.abs(np.fft.rfft(sig * self.win, n=self.fft_size))**2\n        band =\
-      \ np.where(self.band_mask, spec, 0.0)\n        k = int(np.argmax(band))\n  \
-      \      if k == 0 or k >= len(spec) - 1:\n            return\n        band_vals\
-      \ = spec[self.band_mask]\n        med = np.median(band_vals) + 1e-30\n     \
-      \   if band[k] < 6.0 * med:\n            return\n        a = np.log(spec[k-1]\
-      \ + 1e-30)\n        b = np.log(spec[k] + 1e-30)\n        c = np.log(spec[k+1]\
-      \ + 1e-30)\n        d = a - 2.0*b + c\n        delta = 0.5*(a - c)/d if d !=\
-      \ 0 else 0.0\n        peak_freq = self.freqs[k] + delta * self.bin_hz\n    \
-      \    self.current_bpm = float(np.clip(peak_freq * 60.0, 0.0, 60.0))\n\n    def\
-      \ work(self, input_items, output_items):\n        x = input_items[0]\n     \
-      \   out = output_items[0]\n        n = len(x)\n        end = self.buf_idx +\
-      \ n\n        if end <= self.window_len:\n            self.buffer[self.buf_idx:end]\
-      \ = x\n        else:\n            first = self.window_len - self.buf_idx\n \
-      \           self.buffer[self.buf_idx:] = x[:first]\n            self.buffer[:n\
-      \ - first] = x[first:]\n        self.buf_idx = (self.buf_idx + n) % self.window_len\n\
-      \        if not self.filled and end >= self.window_len:\n            self.filled\
-      \ = True\n        self.since_update += n\n        if self.filled and self.since_update\
-      \ >= self.update_every:\n            self._compute_bpm()\n            self.since_update\
-      \ = 0\n        out[:n] = np.float32(self.current_bpm)\n        return n\n"
+      \    \"\"\"FFT BPM estimator (Hann window, linear detrend, log-parabolic peak\
+      \ interpolation).\n\n    Every window_sec seconds the last window_sec of the\
+      \ bandpassed breathing\n    phase is detrended, Hann-windowed, zero-padded to\
+      \ fft_size and transformed.\n    The strongest bin in [f_low, f_high] is refined\
+      \ with a parabolic fit on the\n    log spectrum and reported in BPM. An estimate\
+      \ is accepted only when\n\n      * the record's peak-to-peak amplitude is at\
+      \ least min_pp radians, and\n      * the peak is at least snr_gate times the\
+      \ median of the in-band bins\n        that lie outside the window's main lobe\
+      \ (+/- 2/T Hz for Hann).\n\n    The second rule is what makes such a narrow\
+      \ band workable. A 15 s record\n    has a main lobe about 0.27 Hz wide, most\
+      \ of the 0.1-0.5 Hz band, so\n    comparing the peak with the median of *all*\
+      \ in-band bins (as the first\n    version did, with a 4-term Blackman-Harris\
+      \ window and an even wider lobe)\n    rejected clean breathing near the band\
+      \ centre. Until an estimate is\n    accepted the output is 0.0; afterwards the\
+      \ last accepted value is held.\n    \"\"\"\n\n    def __init__(self, samp_rate=500.0,\
+      \ window_sec=15.0, fft_size=32768,\n                 f_low=0.1, f_high=0.5,\
+      \ snr_gate=6.0, min_pp=0.005):\n        gr.sync_block.__init__(self, name='FFT\
+      \ BPM Estimator',\n                               in_sig=[np.float32], out_sig=[np.float32])\n\
+      \        self.samp_rate = float(samp_rate)\n        self.window_len = int(self.samp_rate\
+      \ * float(window_sec))\n        # Never crop the record: pad to at least the\
+      \ next power of two above it.\n        self.fft_size = max(int(fft_size), 1\
+      \ << (self.window_len - 1).bit_length())\n        self.snr_gate = float(snr_gate)\n\
+      \        self.min_pp = float(min_pp)\n        self.buffer = np.zeros(self.window_len,\
+      \ dtype=np.float32)\n        self.buf_idx = 0\n        self.filled = False\n\
+      \        self.current_bpm = 0.0\n        self.last_peak_ratio = 0.0     # diagnostic:\
+      \ peak / noise reference at the last update\n        self.freqs = np.fft.rfftfreq(self.fft_size,\
+      \ d=1.0 / self.samp_rate)\n        self.band_mask = (self.freqs >= float(f_low))\
+      \ & (self.freqs <= float(f_high))\n        self.mainlobe_hz = 2.0 * self.samp_rate\
+      \ / self.window_len\n        n_arr = np.arange(self.window_len, dtype=np.float64)\n\
+      \        self.win = (0.5 - 0.5 * np.cos(2.0 * np.pi * n_arr / (self.window_len\
+      \ - 1))).astype(np.float32)\n        self.bin_hz = self.freqs[1] - self.freqs[0]\n\
+      \        self.detrend_t = np.arange(self.window_len, dtype=np.float32)\n   \
+      \     self.update_every = self.window_len\n        self.since_update = 0\n\n\
+      \    def _push(self, x):\n        n = len(x)\n        L = self.window_len\n\
+      \        if n >= L:                      # a chunk bigger than the window replaces\
+      \ it\n            self.buffer[:] = x[-L:]\n            self.buf_idx = 0\n  \
+      \          self.filled = True\n            return\n        end = self.buf_idx\
+      \ + n\n        if end <= L:\n            self.buffer[self.buf_idx:end] = x\n\
+      \        else:\n            first = L - self.buf_idx\n            self.buffer[self.buf_idx:]\
+      \ = x[:first]\n            self.buffer[:n - first] = x[first:]\n        self.buf_idx\
+      \ = (self.buf_idx + n) % L\n        if end >= L:\n            self.filled =\
+      \ True\n\n    def _compute_bpm(self):\n        sig = np.concatenate((self.buffer[self.buf_idx:],\
+      \ self.buffer[:self.buf_idx]))\n        if float(np.max(sig) - np.min(sig))\
+      \ < self.min_pp:\n            return\n        coef = np.polyfit(self.detrend_t,\
+      \ sig, 1)\n        sig = sig - (coef[0] * self.detrend_t + coef[1])\n      \
+      \  spec = np.abs(np.fft.rfft(sig * self.win, n=self.fft_size)) ** 2\n      \
+      \  band = np.where(self.band_mask, spec, 0.0)\n        k = int(np.argmax(band))\n\
+      \        if k == 0 or k >= len(spec) - 1:\n            return\n        # Noise\
+      \ reference: in-band bins clear of the main lobe around the peak.\n        offset\
+      \ = np.abs(self.freqs - self.freqs[k])\n        ref = self.band_mask & (offset\
+      \ > self.mainlobe_hz)\n        if np.count_nonzero(ref) < 3:\n            ref\
+      \ = self.band_mask & (offset > 0.5 * self.mainlobe_hz)\n        noise = float(np.median(spec[ref]))\
+      \ + 1e-30 if np.any(ref) else 1e-30\n        self.last_peak_ratio = float(spec[k])\
+      \ / noise\n        if self.last_peak_ratio < self.snr_gate:\n            return\n\
+      \        a = np.log(spec[k - 1] + 1e-30)\n        b = np.log(spec[k] + 1e-30)\n\
+      \        c = np.log(spec[k + 1] + 1e-30)\n        d = a - 2.0 * b + c\n    \
+      \    delta = 0.5 * (a - c) / d if d != 0 else 0.0\n        peak_freq = self.freqs[k]\
+      \ + delta * self.bin_hz\n        self.current_bpm = float(np.clip(peak_freq\
+      \ * 60.0, 0.0, 60.0))\n\n    def work(self, input_items, output_items):\n  \
+      \      x = input_items[0]\n        out = output_items[0]\n        n = len(x)\n\
+      \        self._push(x)\n        self.since_update += n\n        if self.filled\
+      \ and self.since_update >= self.update_every:\n            self._compute_bpm()\n\
+      \            self.since_update = 0\n        out[:n] = np.float32(self.current_bpm)\n\
+      \        return n\n"
     affinity: ''
     alias: ''
     comment: ''
     f_high: '0.5'
     f_low: '0.1'
-    fft_size: '8192'
+    fft_size: '32768'
     maxoutbuf: '0'
+    min_pp: ''
     minoutbuf: '0'
     samp_rate: '500'
+    snr_gate: ''
     window_sec: '15'
   states:
     _io_cache: ('FFT BPM Estimator', 'blk', [('samp_rate', '500.0'), ('window_sec',
-      '20.0'), ('fft_size', '8192'), ('f_low', '0.1'), ('f_high', '0.5')], [('0',
-      'float', 1)], [('0', 'float', 1)], 'FFT BPM estimator (Blackman-Harris window
-      + linear detrend).', ['fft_size', 'samp_rate'])
+      '15.0'), ('fft_size', '32768'), ('f_low', '0.1'), ('f_high', '0.5'), ('snr_gate',
+      '6.0'), ('min_pp', '0.005')], [('0', 'float', 1)], [('0', 'float', 1)], "FFT
+      BPM estimator (Hann window, linear detrend, log-parabolic peak interpolation).\n\nEvery
+      window_sec seconds the last window_sec of the bandpassed breathing\nphase is
+      detrended, Hann-windowed, zero-padded to fft_size and transformed.\nThe strongest
+      bin in [f_low, f_high] is refined with a parabolic fit on the\nlog spectrum
+      and reported in BPM. An estimate is accepted only when\n\n  * the record's peak-to-peak
+      amplitude is at least min_pp radians, and\n  * the peak is at least snr_gate
+      times the median of the in-band bins\n    that lie outside the window's main
+      lobe (+/- 2/T Hz for Hann).\n\nThe second rule is what makes such a narrow band
+      workable. A 15 s record\nhas a main lobe about 0.27 Hz wide, most of the 0.1-0.5
+      Hz band, so\ncomparing the peak with the median of *all* in-band bins (as the
+      first\nversion did, with a 4-term Blackman-Harris window and an even wider lobe)\nrejected
+      clean breathing near the band centre. Until an estimate is\naccepted the output
+      is 0.0; afterwards the last accepted value is held.\n", ['fft_size', 'min_pp',
+      'samp_rate', 'snr_gate'])
     bus_sink: false
     bus_source: false
     bus_structure: null
@@ -383,25 +423,35 @@ blocks:
   id: epy_block
   parameters:
     _source_code: "import numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n\
-      \    \"\"\"Zero-Crossing BPM with peak-to-peak adaptive threshold (auto-scale\
-      \ style).\"\"\"\n\n    def __init__(self, samp_rate=500.0, window_sec=15.0,\n\
-      \                 frac_of_pp=0.3, min_pp=0.005):\n        gr.sync_block.__init__(self,\
-      \ name='ZC BPM Estimator',\n                               in_sig=[np.float32],\
-      \ out_sig=[np.float32])\n        self.fs = float(samp_rate)\n        self.win_samples\
-      \ = int(self.fs * float(window_sec))\n        self.frac = float(frac_of_pp)\n\
-      \        self.min_pp = float(min_pp)\n        self.stats_buf = np.zeros(self.win_samples,\
-      \ dtype=np.float32)\n        self.stats_idx = 0\n        self.stats_full = False\n\
-      \        self.center = 0.0\n        self.thresh_high = 0.0\n        self.thresh_low\
-      \ = 0.0\n        self.have_thresh = False\n        self.armed = True\n     \
-      \   self.crossings = []\n        self.n_abs = 0\n        self.bpm = 0.0\n\n\
-      \    def work(self, input_items, output_items):\n        x = input_items[0]\n\
-      \        out = output_items[0]\n        n = len(x)\n        end = self.stats_idx\
-      \ + n\n        if end <= self.win_samples:\n            self.stats_buf[self.stats_idx:end]\
-      \ = x\n        else:\n            first = self.win_samples - self.stats_idx\n\
-      \            self.stats_buf[self.stats_idx:] = x[:first]\n            self.stats_buf[:n\
-      \ - first] = x[first:]\n        self.stats_idx = (self.stats_idx + n) % self.win_samples\n\
-      \        if not self.stats_full and end >= self.win_samples:\n            self.stats_full\
-      \ = True\n        if self.stats_full:\n            hi = float(np.max(self.stats_buf))\n\
+      \    \"\"\"Zero-crossing BPM estimator with a peak-to-peak adaptive Schmitt\
+      \ trigger.\n\n    The thresholds sit at centre +/- frac_of_pp * pp / 2, where\
+      \ centre and pp\n    are the mid-point and peak-to-peak of the last window_sec\
+      \ seconds, so the\n    trigger rescales itself to whatever amplitude the subject\
+      \ produces. A\n    crossing is counted once per cycle (arm below the low threshold,\
+      \ fire\n    above the high one), and BPM = (crossings - 1) * 60 / time between\
+      \ the\n    first and last crossing in the window. Output is 0.0 until two crossings\n\
+      \    exist or while pp < min_pp (no subject).\n    \"\"\"\n\n    def __init__(self,\
+      \ samp_rate=500.0, window_sec=15.0,\n                 frac_of_pp=0.3, min_pp=0.005):\n\
+      \        gr.sync_block.__init__(self, name='ZC BPM Estimator',\n           \
+      \                    in_sig=[np.float32], out_sig=[np.float32])\n        self.fs\
+      \ = float(samp_rate)\n        self.win_samples = int(self.fs * float(window_sec))\n\
+      \        self.frac = float(frac_of_pp)\n        self.min_pp = float(min_pp)\n\
+      \        self.stats_buf = np.zeros(self.win_samples, dtype=np.float32)\n   \
+      \     self.stats_idx = 0\n        self.stats_full = False\n        self.center\
+      \ = 0.0\n        self.thresh_high = 0.0\n        self.thresh_low = 0.0\n   \
+      \     self.have_thresh = False\n        self.armed = True\n        self.crossings\
+      \ = []\n        self.n_abs = 0\n        self.bpm = 0.0\n\n    def _push(self,\
+      \ x):\n        n = len(x)\n        L = self.win_samples\n        if n >= L:\
+      \                      # a chunk bigger than the window replaces it\n      \
+      \      self.stats_buf[:] = x[-L:]\n            self.stats_idx = 0\n        \
+      \    self.stats_full = True\n            return\n        end = self.stats_idx\
+      \ + n\n        if end <= L:\n            self.stats_buf[self.stats_idx:end]\
+      \ = x\n        else:\n            first = L - self.stats_idx\n            self.stats_buf[self.stats_idx:]\
+      \ = x[:first]\n            self.stats_buf[:n - first] = x[first:]\n        self.stats_idx\
+      \ = (self.stats_idx + n) % L\n        if end >= L:\n            self.stats_full\
+      \ = True\n\n    def work(self, input_items, output_items):\n        x = input_items[0]\n\
+      \        out = output_items[0]\n        n = len(x)\n        self._push(x)\n\
+      \        if self.stats_full:\n            hi = float(np.max(self.stats_buf))\n\
       \            lo = float(np.min(self.stats_buf))\n            pp = hi - lo\n\
       \            if pp >= self.min_pp:\n                self.center = (hi + lo)\
       \ / 2.0\n                half = self.frac * pp / 2.0\n                self.thresh_high\
@@ -410,15 +460,14 @@ blocks:
       \  self.have_thresh = False\n        if self.have_thresh:\n            for i\
       \ in range(n):\n                v = x[i]\n                if self.armed:\n \
       \                   if v > self.thresh_high:\n                        self.crossings.append(self.n_abs\
-      \ + i)\n                        self.armed = False\n                else:\n\
-      \                    if v < self.thresh_low:\n                        self.armed\
-      \ = True\n        self.n_abs += n\n        cutoff = self.n_abs - self.win_samples\n\
-      \        self.crossings = [t for t in self.crossings if t >= cutoff]\n     \
-      \   if len(self.crossings) >= 2:\n            span_sec = (self.crossings[-1]\
-      \ - self.crossings[0]) / self.fs\n            if span_sec > 0:\n           \
-      \     self.bpm = (len(self.crossings) - 1) * 60.0 / span_sec\n        else:\n\
-      \            self.bpm = 0.0\n        out[:n] = np.float32(self.bpm)\n      \
-      \  return n\n"
+      \ + i)\n                        self.armed = False\n                elif v <\
+      \ self.thresh_low:\n                    self.armed = True\n        self.n_abs\
+      \ += n\n        cutoff = self.n_abs - self.win_samples\n        self.crossings\
+      \ = [t for t in self.crossings if t >= cutoff]\n        if len(self.crossings)\
+      \ >= 2:\n            span_sec = (self.crossings[-1] - self.crossings[0]) / self.fs\n\
+      \            if span_sec > 0:\n                self.bpm = (len(self.crossings)\
+      \ - 1) * 60.0 / span_sec\n        else:\n            self.bpm = 0.0\n      \
+      \  out[:n] = np.float32(self.bpm)\n        return n\n"
     affinity: ''
     alias: ''
     comment: ''
@@ -431,8 +480,14 @@ blocks:
   states:
     _io_cache: ('ZC BPM Estimator', 'blk', [('samp_rate', '500.0'), ('window_sec',
       '15.0'), ('frac_of_pp', '0.3'), ('min_pp', '0.005')], [('0', 'float', 1)], [('0',
-      'float', 1)], 'Zero-Crossing BPM with peak-to-peak adaptive threshold (auto-scale
-      style).', ['min_pp'])
+      'float', 1)], 'Zero-crossing BPM estimator with a peak-to-peak adaptive Schmitt
+      trigger.\n\nThe thresholds sit at centre +/- frac_of_pp * pp / 2, where centre
+      and pp\nare the mid-point and peak-to-peak of the last window_sec seconds, so
+      the\ntrigger rescales itself to whatever amplitude the subject produces. A\ncrossing
+      is counted once per cycle (arm below the low threshold, fire\nabove the high
+      one), and BPM = (crossings - 1) * 60 / time between the\nfirst and last crossing
+      in the window. Output is 0.0 until two crossings\nexist or while pp < min_pp
+      (no subject).\n', ['min_pp'])
     bus_sink: false
     bus_source: false
     bus_structure: null
@@ -443,42 +498,50 @@ blocks:
   id: epy_block
   parameters:
     _source_code: "import numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n\
-      \    \"\"\"Autocorrelation BPM estimator (DC/drift-immune, low-BPM capable).\"\
-      \"\"\n\n    def __init__(self, samp_rate=500.0, window_sec=60.0,\n         \
-      \        bpm_min=3.0, bpm_max=30.0, corr_threshold=0.3):\n        gr.sync_block.__init__(self,\
-      \ name='AC BPM Estimator',\n                               in_sig=[np.float32],\
-      \ out_sig=[np.float32])\n        self.fs = float(samp_rate)\n        self.window_len\
-      \ = int(self.fs * float(window_sec))\n        self.bpm_min = float(bpm_min)\n\
-      \        self.bpm_max = float(bpm_max)\n        self.corr_threshold = float(corr_threshold)\n\
-      \        self.tau_min = int(self.fs * 60.0 / self.bpm_max)\n        self.tau_max\
-      \ = int(self.fs * 60.0 / self.bpm_min)\n        self.buffer = np.zeros(self.window_len,\
-      \ dtype=np.float32)\n        self.buf_idx = 0\n        self.filled = False\n\
-      \        self.current_bpm = 0.0\n        self.update_every = int(self.fs * float(window_sec))\n\
-      \        self.since_update = 0\n\n    def _compute_bpm(self):\n        sig =\
-      \ np.concatenate((self.buffer[self.buf_idx:], self.buffer[:self.buf_idx]))\n\
-      \        sig = sig - np.mean(sig)\n        N = len(sig)\n        padded = np.concatenate([sig,\
-      \ np.zeros(N, dtype=np.float32)])\n        spec = np.fft.rfft(padded)\n    \
-      \    ac = np.fft.irfft(np.abs(spec)**2)[:N]\n        if ac[0] <= 0:\n      \
-      \      return\n        ac = ac / ac[0]\n        tmin = min(self.tau_min, N -\
-      \ 2)\n        tmax = min(self.tau_max, N - 2)\n        if tmin >= tmax:\n  \
-      \          return\n        search = ac[tmin:tmax+1]\n        k_local = int(np.argmax(search))\n\
-      \        k = k_local + tmin\n        if ac[k] < self.corr_threshold:\n     \
-      \       return\n        if 0 < k < N - 1:\n            a = ac[k-1]\n       \
-      \     b = ac[k]\n            c = ac[k+1]\n            denom = a - 2.0*b + c\n\
-      \            delta = 0.5*(a - c)/denom if denom != 0 else 0.0\n            period\
-      \ = (k + delta) / self.fs\n        else:\n            period = k / self.fs\n\
-      \        if period > 0:\n            self.current_bpm = float(np.clip(60.0 /\
-      \ period, 0.0, 60.0))\n\n    def work(self, input_items, output_items):\n  \
-      \      x = input_items[0]\n        out = output_items[0]\n        n = len(x)\n\
-      \        end = self.buf_idx + n\n        if end <= self.window_len:\n      \
-      \      self.buffer[self.buf_idx:end] = x\n        else:\n            first =\
-      \ self.window_len - self.buf_idx\n            self.buffer[self.buf_idx:] = x[:first]\n\
-      \            self.buffer[:n - first] = x[first:]\n        self.buf_idx = (self.buf_idx\
-      \ + n) % self.window_len\n        if not self.filled and end >= self.window_len:\n\
-      \            self.filled = True\n        self.since_update += n\n        if\
-      \ self.filled and self.since_update >= self.update_every:\n            self._compute_bpm()\n\
-      \            self.since_update = 0\n        out[:n] = np.float32(self.current_bpm)\n\
-      \        return n\n"
+      \    \"\"\"Autocorrelation BPM estimator (immune to DC offset and slow drift).\n\
+      \n    Every window_sec seconds the mean is removed from the last window_sec\
+      \ of\n    signal and its autocorrelation is computed through the FFT\n    (Wiener-Khinchin,\
+      \ zero-padded to avoid circular wrap). The first peak in\n    the lag range\
+      \ 60/bpm_max .. 60/bpm_min seconds gives the period; a\n    parabolic fit on\
+      \ the three lags around it refines it. Peaks with a\n    normalised correlation\
+      \ below corr_threshold are ignored. Output is 0.0\n    until the first accepted\
+      \ estimate, then holds the last one.\n    \"\"\"\n\n    def __init__(self, samp_rate=500.0,\
+      \ window_sec=60.0,\n                 bpm_min=3.0, bpm_max=30.0, corr_threshold=0.3):\n\
+      \        gr.sync_block.__init__(self, name='AC BPM Estimator',\n           \
+      \                    in_sig=[np.float32], out_sig=[np.float32])\n        self.fs\
+      \ = float(samp_rate)\n        self.window_len = int(self.fs * float(window_sec))\n\
+      \        self.bpm_min = float(bpm_min)\n        self.bpm_max = float(bpm_max)\n\
+      \        self.corr_threshold = float(corr_threshold)\n        self.tau_min =\
+      \ int(self.fs * 60.0 / self.bpm_max)\n        self.tau_max = int(self.fs * 60.0\
+      \ / self.bpm_min)\n        self.buffer = np.zeros(self.window_len, dtype=np.float32)\n\
+      \        self.buf_idx = 0\n        self.filled = False\n        self.current_bpm\
+      \ = 0.0\n        self.update_every = self.window_len\n        self.since_update\
+      \ = 0\n\n    def _push(self, x):\n        n = len(x)\n        L = self.window_len\n\
+      \        if n >= L:                      # a chunk bigger than the window replaces\
+      \ it\n            self.buffer[:] = x[-L:]\n            self.buf_idx = 0\n  \
+      \          self.filled = True\n            return\n        end = self.buf_idx\
+      \ + n\n        if end <= L:\n            self.buffer[self.buf_idx:end] = x\n\
+      \        else:\n            first = L - self.buf_idx\n            self.buffer[self.buf_idx:]\
+      \ = x[:first]\n            self.buffer[:n - first] = x[first:]\n        self.buf_idx\
+      \ = (self.buf_idx + n) % L\n        if end >= L:\n            self.filled =\
+      \ True\n\n    def _compute_bpm(self):\n        sig = np.concatenate((self.buffer[self.buf_idx:],\
+      \ self.buffer[:self.buf_idx]))\n        sig = sig - np.mean(sig)\n        N\
+      \ = len(sig)\n        padded = np.concatenate([sig, np.zeros(N, dtype=np.float32)])\n\
+      \        spec = np.fft.rfft(padded)\n        ac = np.fft.irfft(np.abs(spec)\
+      \ ** 2)[:N]\n        if ac[0] <= 0:\n            return\n        ac = ac / ac[0]\n\
+      \        tmin = min(self.tau_min, N - 2)\n        tmax = min(self.tau_max, N\
+      \ - 2)\n        if tmin >= tmax:\n            return\n        k = int(np.argmax(ac[tmin:tmax\
+      \ + 1])) + tmin\n        if ac[k] < self.corr_threshold:\n            return\n\
+      \        if 0 < k < N - 1:\n            a, b, c = ac[k - 1], ac[k], ac[k + 1]\n\
+      \            denom = a - 2.0 * b + c\n            delta = 0.5 * (a - c) / denom\
+      \ if denom != 0 else 0.0\n            period = (k + delta) / self.fs\n     \
+      \   else:\n            period = k / self.fs\n        if period > 0:\n      \
+      \      self.current_bpm = float(np.clip(60.0 / period, 0.0, 60.0))\n\n    def\
+      \ work(self, input_items, output_items):\n        x = input_items[0]\n     \
+      \   out = output_items[0]\n        n = len(x)\n        self._push(x)\n     \
+      \   self.since_update += n\n        if self.filled and self.since_update >=\
+      \ self.update_every:\n            self._compute_bpm()\n            self.since_update\
+      \ = 0\n        out[:n] = np.float32(self.current_bpm)\n        return n\n"
     affinity: ''
     alias: ''
     bpm_max: '30.0'
@@ -492,8 +555,14 @@ blocks:
   states:
     _io_cache: ('AC BPM Estimator', 'blk', [('samp_rate', '500.0'), ('window_sec',
       '60.0'), ('bpm_min', '3.0'), ('bpm_max', '30.0'), ('corr_threshold', '0.3')],
-      [('0', 'float', 1)], [('0', 'float', 1)], 'Autocorrelation BPM estimator (DC/drift-immune,
-      low-BPM capable).', ['bpm_max', 'bpm_min', 'corr_threshold'])
+      [('0', 'float', 1)], [('0', 'float', 1)], 'Autocorrelation BPM estimator (immune
+      to DC offset and slow drift).\n\nEvery window_sec seconds the mean is removed
+      from the last window_sec of\nsignal and its autocorrelation is computed through
+      the FFT\n(Wiener-Khinchin, zero-padded to avoid circular wrap). The first peak
+      in\nthe lag range 60/bpm_max .. 60/bpm_min seconds gives the period; a\nparabolic
+      fit on the three lags around it refines it. Peaks with a\nnormalised correlation
+      below corr_threshold are ignored. Output is 0.0\nuntil the first accepted estimate,
+      then holds the last one.\n', ['bpm_max', 'bpm_min', 'corr_threshold'])
     bus_sink: false
     bus_source: false
     bus_structure: null
