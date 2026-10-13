@@ -1,0 +1,26 @@
+[project]
+name = "respradar"
+version = "1.0.0"
+description = "5.95 GHz CW Doppler respiratory-rate radar on an ADALM-Pluto: GNU Radio blocks, simulator, and dashboard"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Federico Peon" }]
+dependencies = ["numpy>=1.24", "scipy>=1.10", "pyqtgraph>=0.13", "PyQt5>=5.15"]
+# gnuradio (3.10, with gr-iio) must come from the system or conda; it is not on PyPI.
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+respradar-dashboard = "respradar.dashboard:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["respradar*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,11 @@
+# GNU Radio 3.10 itself (with gr-iio for the PlutoSDR) is not on PyPI; install it
+# from your distribution (e.g. `sudo apt install gnuradio`) or radioconda, then
+# make sure this environment can see it (a venv created with
+# --system-site-packages works).
+numpy>=1.24
+scipy>=1.10
+pyqtgraph>=0.13
+PyQt5>=5.15
+
+# development
+pytest>=7

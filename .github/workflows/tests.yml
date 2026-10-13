@@ -1,0 +1,17 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GNU Radio and Qt from apt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnuradio python3-pyqtgraph python3-pyqt5 python3-scipy python3-numpy python3-pytest xvfb
+      - name: Unit and end-to-end tests
+        run: python3 -m pytest -q
