@@ -73,13 +73,13 @@ class RespiratoryRadarFlowgraph(gr.top_block):
             if head_seconds:
                 self.head = blocks.head(gr.sizeof_gr_complex, int(head_seconds * P.SAMP_RATE))
                 front.append(self.head)
-            if not sim_speed or sim_speed >= 10:
-                # Faster than real time the 2000:1 decimator would otherwise hand the
-                # Python blocks downstream two samples per work() call. Bigger buffers
-                # in front of it mean ~500 samples per call instead (0.25 s bursts at
-                # real-time speed, so leave the default when pacing for the display).
-                for b in front:
-                    b.set_min_output_buffer(1 << 20)
+            # With default 4096-sample chunks the 2000:1 decimator would hand every
+            # Python block downstream two samples per work() call. Bigger buffers in
+            # front of it mean 32 samples per call at real-time speed (64 ms bursts,
+            # still smooth on a 20 Hz display) and ~500 per call when running
+            # unthrottled or fast, where Python call overhead would dominate.
+            for b in front:
+                b.set_min_output_buffer(1 << 20 if (not sim_speed or sim_speed >= 10) else 1 << 16)
             for a, b in zip(front, front[1:]):
                 self.connect((a, 0), (b, 0))
             rx = front[-1]

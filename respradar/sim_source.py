@@ -23,9 +23,10 @@ class breathing_sim_source(gr.sync_block):
         breath_amp_mm:     chest displacement amplitude (half of peak-to-peak).
         static_amp:        amplitude of the stationary echo (walls, antenna coupling).
         body_amp:          amplitude of the echo from the chest.
-        noise_std:         complex AWGN standard deviation per 1 MS/s sample. The
-                           2000:1 decimation gives ~33 dB of processing gain, so
-                           even 0.3 here is still a clean signal at 500 S/s.
+        noise_std:         complex AWGN standard deviation per 1 MS/s sample
+                           (default 0.05, a clean constellation). The 2000:1
+                           decimation gives ~33 dB of processing gain, so even
+                           0.3 is still a clean signal at 500 S/s.
         drift_mm/drift_hz: slow range wander (posture, thermal drift) that the DC
                            blocker and bandpass have to reject.
         motion_period_s:   seconds between gross movements (0 disables them).
