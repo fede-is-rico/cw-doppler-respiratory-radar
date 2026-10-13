@@ -3,7 +3,16 @@ from gnuradio import gr
 
 
 class blk(gr.sync_block):
-    """Autocorrelation BPM estimator (DC/drift-immune, low-BPM capable)."""
+    """Autocorrelation BPM estimator (immune to DC offset and slow drift).
+
+    Every window_sec seconds the mean is removed from the last window_sec of
+    signal and its autocorrelation is computed through the FFT
+    (Wiener-Khinchin, zero-padded to avoid circular wrap). The first peak in
+    the lag range 60/bpm_max .. 60/bpm_min seconds gives the period; a
+    parabolic fit on the three lags around it refines it. Peaks with a
+    normalised correlation below corr_threshold are ignored. Output is 0.0
+    until the first accepted estimate, then holds the last one.
+    """
 
     def __init__(self, samp_rate=500.0, window_sec=60.0,
                  bpm_min=3.0, bpm_max=30.0, corr_threshold=0.3):
@@ -20,8 +29,27 @@ class blk(gr.sync_block):
         self.buf_idx = 0
         self.filled = False
         self.current_bpm = 0.0
-        self.update_every = int(self.fs * float(window_sec))
+        self.update_every = self.window_len
         self.since_update = 0
+
+    def _push(self, x):
+        n = len(x)
+        L = self.window_len
+        if n >= L:                      # a chunk bigger than the window replaces it
+            self.buffer[:] = x[-L:]
+            self.buf_idx = 0
+            self.filled = True
+            return
+        end = self.buf_idx + n
+        if end <= L:
+            self.buffer[self.buf_idx:end] = x
+        else:
+            first = L - self.buf_idx
+            self.buffer[self.buf_idx:] = x[:first]
+            self.buffer[:n - first] = x[first:]
+        self.buf_idx = (self.buf_idx + n) % L
+        if end >= L:
+            self.filled = True
 
     def _compute_bpm(self):
         sig = np.concatenate((self.buffer[self.buf_idx:], self.buffer[:self.buf_idx]))
@@ -29,7 +57,7 @@ class blk(gr.sync_block):
         N = len(sig)
         padded = np.concatenate([sig, np.zeros(N, dtype=np.float32)])
         spec = np.fft.rfft(padded)
-        ac = np.fft.irfft(np.abs(spec)**2)[:N]
+        ac = np.fft.irfft(np.abs(spec) ** 2)[:N]
         if ac[0] <= 0:
             return
         ac = ac / ac[0]
@@ -37,17 +65,13 @@ class blk(gr.sync_block):
         tmax = min(self.tau_max, N - 2)
         if tmin >= tmax:
             return
-        search = ac[tmin:tmax+1]
-        k_local = int(np.argmax(search))
-        k = k_local + tmin
+        k = int(np.argmax(ac[tmin:tmax + 1])) + tmin
         if ac[k] < self.corr_threshold:
             return
         if 0 < k < N - 1:
-            a = ac[k-1]
-            b = ac[k]
-            c = ac[k+1]
-            denom = a - 2.0*b + c
-            delta = 0.5*(a - c)/denom if denom != 0 else 0.0
+            a, b, c = ac[k - 1], ac[k], ac[k + 1]
+            denom = a - 2.0 * b + c
+            delta = 0.5 * (a - c) / denom if denom != 0 else 0.0
             period = (k + delta) / self.fs
         else:
             period = k / self.fs
@@ -58,16 +82,7 @@ class blk(gr.sync_block):
         x = input_items[0]
         out = output_items[0]
         n = len(x)
-        end = self.buf_idx + n
-        if end <= self.window_len:
-            self.buffer[self.buf_idx:end] = x
-        else:
-            first = self.window_len - self.buf_idx
-            self.buffer[self.buf_idx:] = x[:first]
-            self.buffer[:n - first] = x[first:]
-        self.buf_idx = (self.buf_idx + n) % self.window_len
-        if not self.filled and end >= self.window_len:
-            self.filled = True
+        self._push(x)
         self.since_update += n
         if self.filled and self.since_update >= self.update_every:
             self._compute_bpm()

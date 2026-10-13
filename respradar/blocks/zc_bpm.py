@@ -3,7 +3,16 @@ from gnuradio import gr
 
 
 class blk(gr.sync_block):
-    """Zero-Crossing BPM with peak-to-peak adaptive threshold (auto-scale style)."""
+    """Zero-crossing BPM estimator with a peak-to-peak adaptive Schmitt trigger.
+
+    The thresholds sit at centre +/- frac_of_pp * pp / 2, where centre and pp
+    are the mid-point and peak-to-peak of the last window_sec seconds, so the
+    trigger rescales itself to whatever amplitude the subject produces. A
+    crossing is counted once per cycle (arm below the low threshold, fire
+    above the high one), and BPM = (crossings - 1) * 60 / time between the
+    first and last crossing in the window. Output is 0.0 until two crossings
+    exist or while pp < min_pp (no subject).
+    """
 
     def __init__(self, samp_rate=500.0, window_sec=15.0,
                  frac_of_pp=0.3, min_pp=0.005):
@@ -25,20 +34,30 @@ class blk(gr.sync_block):
         self.n_abs = 0
         self.bpm = 0.0
 
+    def _push(self, x):
+        n = len(x)
+        L = self.win_samples
+        if n >= L:                      # a chunk bigger than the window replaces it
+            self.stats_buf[:] = x[-L:]
+            self.stats_idx = 0
+            self.stats_full = True
+            return
+        end = self.stats_idx + n
+        if end <= L:
+            self.stats_buf[self.stats_idx:end] = x
+        else:
+            first = L - self.stats_idx
+            self.stats_buf[self.stats_idx:] = x[:first]
+            self.stats_buf[:n - first] = x[first:]
+        self.stats_idx = (self.stats_idx + n) % L
+        if end >= L:
+            self.stats_full = True
+
     def work(self, input_items, output_items):
         x = input_items[0]
         out = output_items[0]
         n = len(x)
-        end = self.stats_idx + n
-        if end <= self.win_samples:
-            self.stats_buf[self.stats_idx:end] = x
-        else:
-            first = self.win_samples - self.stats_idx
-            self.stats_buf[self.stats_idx:] = x[:first]
-            self.stats_buf[:n - first] = x[first:]
-        self.stats_idx = (self.stats_idx + n) % self.win_samples
-        if not self.stats_full and end >= self.win_samples:
-            self.stats_full = True
+        self._push(x)
         if self.stats_full:
             hi = float(np.max(self.stats_buf))
             lo = float(np.min(self.stats_buf))
@@ -58,9 +77,8 @@ class blk(gr.sync_block):
                     if v > self.thresh_high:
                         self.crossings.append(self.n_abs + i)
                         self.armed = False
-                else:
-                    if v < self.thresh_low:
-                        self.armed = True
+                elif v < self.thresh_low:
+                    self.armed = True
         self.n_abs += n
         cutoff = self.n_abs - self.win_samples
         self.crossings = [t for t in self.crossings if t >= cutoff]

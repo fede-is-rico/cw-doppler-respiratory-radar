@@ -102,7 +102,8 @@ class RespiratoryRadarFlowgraph(gr.top_block):
         self.bandpass.declare_sample_delay((P.BP_TAPS - 1) // 2)
 
         self.fft_bpm = fft_bpm.blk(samp_rate=P.FS_DEC, window_sec=P.FFT_WINDOW_SEC,
-                                   fft_size=P.FFT_SIZE, f_low=P.BP_LOW_HZ, f_high=P.BP_HIGH_HZ)
+                                   fft_size=P.FFT_SIZE, f_low=P.BP_LOW_HZ, f_high=P.BP_HIGH_HZ,
+                                   snr_gate=P.FFT_SNR_GATE, min_pp=P.MIN_PP_RAD)
         self.zc_bpm = zc_bpm.blk(samp_rate=P.FS_DEC, window_sec=P.ZC_WINDOW_SEC,
                                  frac_of_pp=P.ZC_FRAC_OF_PP, min_pp=P.MIN_PP_RAD)
         self.ac_bpm = ac_bpm.blk(samp_rate=P.FS_DEC, window_sec=P.AC_WINDOW_SEC,
