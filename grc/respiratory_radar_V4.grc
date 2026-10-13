@@ -1,0 +1,1293 @@
+options:
+  parameters:
+    author: hmbga
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: ''
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: qt_gui
+    hier_block_src_path: '.:'
+    id: respiratory_radar
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: prompt
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: Not titled yet
+    window_size: (1000,1000)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [8, 8]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: center_freq
+  id: variable
+  parameters:
+    comment: ''
+    value: '5950000000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [624, 40.0]
+    rotation: 0
+    state: enabled
+- name: phase_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: samp_rate / 100 / 100
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [976, 40.0]
+    rotation: 0
+    state: enabled
+- name: rx_gain
+  id: variable
+  parameters:
+    comment: ''
+    value: '50'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [864, 40.0]
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: '1000000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [496, 40.0]
+    rotation: 0
+    state: enabled
+- name: tx_gain
+  id: variable
+  parameters:
+    comment: ''
+    value: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [760, 40.0]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1'
+    comment: ''
+    freq: '100000'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: '0'
+    phase: '0'
+    samp_rate: samp_rate
+    showports: 'False'
+    type: complex
+    waveform: analog.GR_COS_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [184, 376.0]
+    rotation: 0
+    state: enabled
+- name: blocks_complex_to_arg_0
+  id: blocks_complex_to_arg
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1696, 304.0]
+    rotation: 0
+    state: enabled
+- name: blocks_complex_to_arg_0_0
+  id: blocks_complex_to_arg
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1608, 120.0]
+    rotation: 0
+    state: enabled
+- name: dc_blocker_xx_0
+  id: dc_blocker_xx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    length: '3200'
+    long_form: 'True'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    type: cc
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1480, 376.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_0
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\n\nclass blk(gr.sync_block):\n\
+      \    \"\"\"Phase unwrap: removes +/-2*pi discontinuities\"\"\"\n    def __init__(self):\n\
+      \        gr.sync_block.__init__(\n            self,\n            name='Phase\
+      \ Unwrap',\n            in_sig=[np.float32],\n            out_sig=[np.float32])\n\
+      \        self.last_in = 0.0\n        self.accum = 0.0\n\n    def work(self,\
+      \ input_items, output_items):\n        x = input_items[0]\n        out = output_items[0]\n\
+      \        # running unwrap: track cumulative offset\n        diff = np.diff(np.concatenate(([self.last_in],\
+      \ x)))\n        # wrap each diff into [-pi, pi]\n        diff_wrapped = (diff\
+      \ + np.pi) % (2*np.pi) - np.pi\n        # reconstruct unwrapped signal\n   \
+      \     unwrapped = self.accum + np.cumsum(diff_wrapped)\n        out[:] = unwrapped.astype(np.float32)\n\
+      \        # update state for next call\n        self.last_in = float(x[-1])\n\
+      \        self.accum = float(unwrapped[-1])\n        return len(out)"
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    _io_cache: '(''Phase Unwrap'', ''blk'', [], [(''0'', ''float'', 1)], [(''0'',
+      ''float'', 1)], ''Phase unwrap: removes +/-2*pi discontinuities'', [])'
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1936, 304.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_0_0
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\n\nclass blk(gr.sync_block):\n\
+      \    \"\"\"Phase unwrap: removes +/-2*pi discontinuities\"\"\"\n    def __init__(self):\n\
+      \        gr.sync_block.__init__(\n            self,\n            name='Phase\
+      \ Unwrap',\n            in_sig=[np.float32],\n            out_sig=[np.float32])\n\
+      \        self.last_in = 0.0\n        self.accum = 0.0\n\n    def work(self,\
+      \ input_items, output_items):\n        x = input_items[0]\n        out = output_items[0]\n\
+      \        # running unwrap: track cumulative offset\n        diff = np.diff(np.concatenate(([self.last_in],\
+      \ x)))\n        # wrap each diff into [-pi, pi]\n        diff_wrapped = (diff\
+      \ + np.pi) % (2*np.pi) - np.pi\n        # reconstruct unwrapped signal\n   \
+      \     unwrapped = self.accum + np.cumsum(diff_wrapped)\n        out[:] = unwrapped.astype(np.float32)\n\
+      \        # update state for next call\n        self.last_in = float(x[-1])\n\
+      \        self.accum = float(unwrapped[-1])\n        return len(out)"
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    _io_cache: '(''Phase Unwrap'', ''blk'', [], [(''0'', ''float'', 1)], [(''0'',
+      ''float'', 1)], ''Phase unwrap: removes +/-2*pi discontinuities'', [])'
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1848, 184.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_1
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n\
+      \    \"\"\"\n    Absolute phase derivative block.\n\n    Input:\n        float32\
+      \ phase samples in radians\n\n    Output:\n        float32 |dphi/dn|\n\n   \
+      \ Use:\n        Connect this block's output to a QT GUI Time Sink to plot it.\n\
+      \    \"\"\"\n\n    def __init__(self, wrap_phase=True):\n        super().__init__(\n\
+      \            name=\"Abs Phase Derivative\",\n            in_sig=[np.float32],\n\
+      \            out_sig=[np.float32],\n        )\n        self.wrap_phase = bool(wrap_phase)\n\
+      \        self.last = 0.0\n\n    def work(self, input_items, output_items):\n\
+      \        x = input_items[0]\n        out = output_items[0]\n\n        n = len(x)\n\
+      \        if n == 0:\n            return 0\n\n        dphi = np.diff(np.concatenate(([self.last],\
+      \ x)))\n\n        if self.wrap_phase:\n            dphi = (dphi + np.pi) % (2.0\
+      \ * np.pi) - np.pi\n\n        out[:n] = np.abs(dphi).astype(np.float32)\n\n\
+      \        self.last = float(x[-1])\n        return n"
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    wrap_phase: 'False'
+  states:
+    _io_cache: ('Abs Phase Derivative', 'blk', [('wrap_phase', 'True')], [('0', 'float',
+      1)], [('0', 'float', 1)], "\n    Absolute phase derivative block.\n\n    Input:\n        float32
+      phase samples in radians\n\n    Output:\n        float32 |dphi/dn|\n\n    Use:\n        Connect
+      this block's output to a QT GUI Time Sink to plot it.\n    ", ['wrap_phase'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1952, 72.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_2
+  id: epy_block
+  parameters:
+    _source_code: "\"\"\"\nMotion Detector \u2014 GNU Radio Embedded Python Block\n\
+      ===================================================\nPlace this after your Abs\
+      \ Phase Derivative block.\nIt compares the input against a threshold and outputs\n\
+      1.0 (motion detected) or 0.0 (no motion).\n\nUses a short averaging window to\
+      \ avoid triggering on\nsingle-sample noise spikes.\n\nGNU Radio setup:\n  Abs\
+      \ Phase Derivative \u2500\u2500\u25BA [this block] \u2500\u2500\u25BA QT GUI\
+      \ Time Sink\n                                             (Sample Rate: 500)\n\
+      \                                         \u2500\u2500\u25BA QT GUI Number Sink\n\
+      \                                             (Sample Rate: 500)\n\nParameters:\n\
+      \  threshold   : phase derivative threshold in rad/sample (default 0.05)\n \
+      \               Start with 0.05 and adjust based on your setup.\n          \
+      \      - Too low \u2192 triggers on noise\n                - Too high \u2192\
+      \ misses subtle motion\n  avg_window  : number of samples to average over (default\
+      \ 50)\n                At 500 samp/s, 50 samples = 100 ms averaging window.\n\
+      \                This smooths out single-sample noise spikes.\n  hold_samples:\
+      \ how long to keep \"motion detected\" after the last\n                trigger\
+      \ (default 500 = 1 second at 500 samp/s).\n                Prevents rapid flickering\
+      \ between states.\n\"\"\"\nimport numpy as np\nfrom gnuradio import gr\n\n\n\
+      class blk(gr.sync_block):\n    \"\"\"Motion detector: thresholds abs phase derivative.\"\
+      \"\"\n\n    def __init__(self, threshold=0.05, avg_window=50, hold_samples=500):\n\
+      \        gr.sync_block.__init__(\n            self,\n            name=\"Motion\
+      \ Detector\",\n            in_sig=[np.float32],\n            out_sig=[np.float32],\n\
+      \        )\n        self.threshold = float(threshold)\n        self.avg_window\
+      \ = int(avg_window)\n        self.hold_samples = int(hold_samples)\n\n     \
+      \   # Ring buffer for running average\n        self.ring = np.zeros(self.avg_window,\
+      \ dtype=np.float32)\n        self.ring_idx = 0\n        self.ring_sum = 0.0\n\
+      \n        # Hold timer: counts down from hold_samples after last trigger\n \
+      \       self.hold_counter = 0\n\n    def work(self, input_items, output_items):\n\
+      \        x = input_items[0]\n        out = output_items[0]\n        n = len(x)\n\
+      \n        for i in range(n):\n            # Update running average\n       \
+      \     old_val = self.ring[self.ring_idx]\n            self.ring[self.ring_idx]\
+      \ = x[i]\n            self.ring_sum += x[i] - old_val\n            self.ring_idx\
+      \ = (self.ring_idx + 1) % self.avg_window\n\n            avg = self.ring_sum\
+      \ / self.avg_window\n\n            # Check threshold\n            if avg > self.threshold:\n\
+      \                self.hold_counter = self.hold_samples\n                out[i]\
+      \ = 1.0\n            elif self.hold_counter > 0:\n                self.hold_counter\
+      \ -= 1\n                out[i] = 1.0\n            else:\n                out[i]\
+      \ = 0.0\n\n        return n"
+    affinity: ''
+    alias: ''
+    avg_window: '50'
+    comment: ''
+    hold_samples: '500'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    threshold: '0.1'
+  states:
+    _io_cache: '(''Motion Detector'', ''blk'', [(''threshold'', ''0.05''), (''avg_window'',
+      ''50''), (''hold_samples'', ''500'')], [(''0'', ''float'', 1)], [(''0'', ''float'',
+      1)], ''Motion detector: thresholds abs phase derivative.'', [''avg_window'',
+      ''hold_samples'', ''threshold''])'
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2288, 284.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_3
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n\
+      \    \"\"\"FFT BPM estimator (Blackman-Harris window + linear detrend).\"\"\"\
+      \n\n    def __init__(self, samp_rate=500.0, window_sec=20.0,\n             \
+      \    fft_size=8192, f_low=0.1, f_high=0.5):\n        gr.sync_block.__init__(self,\
+      \ name='FFT BPM Estimator',\n                               in_sig=[np.float32],\
+      \ out_sig=[np.float32])\n        self.samp_rate = float(samp_rate)\n       \
+      \ self.window_len = int(self.samp_rate * float(window_sec))\n        self.fft_size\
+      \ = int(fft_size)\n        self.buffer = np.zeros(self.window_len, dtype=np.float32)\n\
+      \        self.buf_idx = 0\n        self.filled = False\n        self.current_bpm\
+      \ = 0.0\n        self.freqs = np.fft.rfftfreq(self.fft_size, d=1.0/self.samp_rate)\n\
+      \        self.band_mask = (self.freqs >= float(f_low)) & (self.freqs <= float(f_high))\n\
+      \        N = self.window_len\n        n_arr = np.arange(N, dtype=np.float64)\n\
+      \        self.win = (0.35875\n                    - 0.48829 * np.cos(2.0*np.pi*n_arr/(N-1))\n\
+      \                    + 0.14128 * np.cos(4.0*np.pi*n_arr/(N-1))\n           \
+      \         - 0.01168 * np.cos(6.0*np.pi*n_arr/(N-1))).astype(np.float32)\n  \
+      \      self.bin_hz = self.freqs[1] - self.freqs[0]\n        self.detrend_t =\
+      \ np.arange(self.window_len, dtype=np.float32)\n        self.update_every =\
+      \ int(self.samp_rate * float(window_sec))\n        self.since_update = 0\n\n\
+      \    def _compute_bpm(self):\n        sig = np.concatenate((self.buffer[self.buf_idx:],\
+      \ self.buffer[:self.buf_idx]))\n        coef = np.polyfit(self.detrend_t, sig,\
+      \ 1)\n        sig = sig - (coef[0] * self.detrend_t + coef[1])\n        spec\
+      \ = np.abs(np.fft.rfft(sig * self.win, n=self.fft_size))**2\n        band =\
+      \ np.where(self.band_mask, spec, 0.0)\n        k = int(np.argmax(band))\n  \
+      \      if k == 0 or k >= len(spec) - 1:\n            return\n        band_vals\
+      \ = spec[self.band_mask]\n        med = np.median(band_vals) + 1e-30\n     \
+      \   if band[k] < 6.0 * med:\n            return\n        a = np.log(spec[k-1]\
+      \ + 1e-30)\n        b = np.log(spec[k] + 1e-30)\n        c = np.log(spec[k+1]\
+      \ + 1e-30)\n        d = a - 2.0*b + c\n        delta = 0.5*(a - c)/d if d !=\
+      \ 0 else 0.0\n        peak_freq = self.freqs[k] + delta * self.bin_hz\n    \
+      \    self.current_bpm = float(np.clip(peak_freq * 60.0, 0.0, 60.0))\n\n    def\
+      \ work(self, input_items, output_items):\n        x = input_items[0]\n     \
+      \   out = output_items[0]\n        n = len(x)\n        end = self.buf_idx +\
+      \ n\n        if end <= self.window_len:\n            self.buffer[self.buf_idx:end]\
+      \ = x\n        else:\n            first = self.window_len - self.buf_idx\n \
+      \           self.buffer[self.buf_idx:] = x[:first]\n            self.buffer[:n\
+      \ - first] = x[first:]\n        self.buf_idx = (self.buf_idx + n) % self.window_len\n\
+      \        if not self.filled and end >= self.window_len:\n            self.filled\
+      \ = True\n        self.since_update += n\n        if self.filled and self.since_update\
+      \ >= self.update_every:\n            self._compute_bpm()\n            self.since_update\
+      \ = 0\n        out[:n] = np.float32(self.current_bpm)\n        return n\n"
+    affinity: ''
+    alias: ''
+    comment: ''
+    f_high: '0.5'
+    f_low: '0.1'
+    fft_size: '8192'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: '500'
+    window_sec: '15'
+  states:
+    _io_cache: ('FFT BPM Estimator', 'blk', [('samp_rate', '500.0'), ('window_sec',
+      '20.0'), ('fft_size', '8192'), ('f_low', '0.1'), ('f_high', '0.5')], [('0',
+      'float', 1)], [('0', 'float', 1)], 'FFT BPM estimator (Blackman-Harris window
+      + linear detrend).', ['fft_size', 'samp_rate'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2008, 652.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_4
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n\
+      \    \"\"\"Zero-Crossing BPM with peak-to-peak adaptive threshold (auto-scale\
+      \ style).\"\"\"\n\n    def __init__(self, samp_rate=500.0, window_sec=15.0,\n\
+      \                 frac_of_pp=0.3, min_pp=0.005):\n        gr.sync_block.__init__(self,\
+      \ name='ZC BPM Estimator',\n                               in_sig=[np.float32],\
+      \ out_sig=[np.float32])\n        self.fs = float(samp_rate)\n        self.win_samples\
+      \ = int(self.fs * float(window_sec))\n        self.frac = float(frac_of_pp)\n\
+      \        self.min_pp = float(min_pp)\n        self.stats_buf = np.zeros(self.win_samples,\
+      \ dtype=np.float32)\n        self.stats_idx = 0\n        self.stats_full = False\n\
+      \        self.center = 0.0\n        self.thresh_high = 0.0\n        self.thresh_low\
+      \ = 0.0\n        self.have_thresh = False\n        self.armed = True\n     \
+      \   self.crossings = []\n        self.n_abs = 0\n        self.bpm = 0.0\n\n\
+      \    def work(self, input_items, output_items):\n        x = input_items[0]\n\
+      \        out = output_items[0]\n        n = len(x)\n        end = self.stats_idx\
+      \ + n\n        if end <= self.win_samples:\n            self.stats_buf[self.stats_idx:end]\
+      \ = x\n        else:\n            first = self.win_samples - self.stats_idx\n\
+      \            self.stats_buf[self.stats_idx:] = x[:first]\n            self.stats_buf[:n\
+      \ - first] = x[first:]\n        self.stats_idx = (self.stats_idx + n) % self.win_samples\n\
+      \        if not self.stats_full and end >= self.win_samples:\n            self.stats_full\
+      \ = True\n        if self.stats_full:\n            hi = float(np.max(self.stats_buf))\n\
+      \            lo = float(np.min(self.stats_buf))\n            pp = hi - lo\n\
+      \            if pp >= self.min_pp:\n                self.center = (hi + lo)\
+      \ / 2.0\n                half = self.frac * pp / 2.0\n                self.thresh_high\
+      \ = self.center + half\n                self.thresh_low = self.center - half\n\
+      \                self.have_thresh = True\n            else:\n              \
+      \  self.have_thresh = False\n        if self.have_thresh:\n            for i\
+      \ in range(n):\n                v = x[i]\n                if self.armed:\n \
+      \                   if v > self.thresh_high:\n                        self.crossings.append(self.n_abs\
+      \ + i)\n                        self.armed = False\n                else:\n\
+      \                    if v < self.thresh_low:\n                        self.armed\
+      \ = True\n        self.n_abs += n\n        cutoff = self.n_abs - self.win_samples\n\
+      \        self.crossings = [t for t in self.crossings if t >= cutoff]\n     \
+      \   if len(self.crossings) >= 2:\n            span_sec = (self.crossings[-1]\
+      \ - self.crossings[0]) / self.fs\n            if span_sec > 0:\n           \
+      \     self.bpm = (len(self.crossings) - 1) * 60.0 / span_sec\n        else:\n\
+      \            self.bpm = 0.0\n        out[:n] = np.float32(self.bpm)\n      \
+      \  return n\n"
+    affinity: ''
+    alias: ''
+    comment: ''
+    frac_of_pp: '0.3'
+    maxoutbuf: '0'
+    min_pp: '0.005'
+    minoutbuf: '0'
+    samp_rate: '500'
+    window_sec: '15.0'
+  states:
+    _io_cache: ('ZC BPM Estimator', 'blk', [('samp_rate', '500.0'), ('window_sec',
+      '15.0'), ('frac_of_pp', '0.3'), ('min_pp', '0.005')], [('0', 'float', 1)], [('0',
+      'float', 1)], 'Zero-Crossing BPM with peak-to-peak adaptive threshold (auto-scale
+      style).', ['min_pp'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2032, 840.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_5
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\n\n\nclass blk(gr.sync_block):\n\
+      \    \"\"\"Autocorrelation BPM estimator (DC/drift-immune, low-BPM capable).\"\
+      \"\"\n\n    def __init__(self, samp_rate=500.0, window_sec=60.0,\n         \
+      \        bpm_min=3.0, bpm_max=30.0, corr_threshold=0.3):\n        gr.sync_block.__init__(self,\
+      \ name='AC BPM Estimator',\n                               in_sig=[np.float32],\
+      \ out_sig=[np.float32])\n        self.fs = float(samp_rate)\n        self.window_len\
+      \ = int(self.fs * float(window_sec))\n        self.bpm_min = float(bpm_min)\n\
+      \        self.bpm_max = float(bpm_max)\n        self.corr_threshold = float(corr_threshold)\n\
+      \        self.tau_min = int(self.fs * 60.0 / self.bpm_max)\n        self.tau_max\
+      \ = int(self.fs * 60.0 / self.bpm_min)\n        self.buffer = np.zeros(self.window_len,\
+      \ dtype=np.float32)\n        self.buf_idx = 0\n        self.filled = False\n\
+      \        self.current_bpm = 0.0\n        self.update_every = int(self.fs * float(window_sec))\n\
+      \        self.since_update = 0\n\n    def _compute_bpm(self):\n        sig =\
+      \ np.concatenate((self.buffer[self.buf_idx:], self.buffer[:self.buf_idx]))\n\
+      \        sig = sig - np.mean(sig)\n        N = len(sig)\n        padded = np.concatenate([sig,\
+      \ np.zeros(N, dtype=np.float32)])\n        spec = np.fft.rfft(padded)\n    \
+      \    ac = np.fft.irfft(np.abs(spec)**2)[:N]\n        if ac[0] <= 0:\n      \
+      \      return\n        ac = ac / ac[0]\n        tmin = min(self.tau_min, N -\
+      \ 2)\n        tmax = min(self.tau_max, N - 2)\n        if tmin >= tmax:\n  \
+      \          return\n        search = ac[tmin:tmax+1]\n        k_local = int(np.argmax(search))\n\
+      \        k = k_local + tmin\n        if ac[k] < self.corr_threshold:\n     \
+      \       return\n        if 0 < k < N - 1:\n            a = ac[k-1]\n       \
+      \     b = ac[k]\n            c = ac[k+1]\n            denom = a - 2.0*b + c\n\
+      \            delta = 0.5*(a - c)/denom if denom != 0 else 0.0\n            period\
+      \ = (k + delta) / self.fs\n        else:\n            period = k / self.fs\n\
+      \        if period > 0:\n            self.current_bpm = float(np.clip(60.0 /\
+      \ period, 0.0, 60.0))\n\n    def work(self, input_items, output_items):\n  \
+      \      x = input_items[0]\n        out = output_items[0]\n        n = len(x)\n\
+      \        end = self.buf_idx + n\n        if end <= self.window_len:\n      \
+      \      self.buffer[self.buf_idx:end] = x\n        else:\n            first =\
+      \ self.window_len - self.buf_idx\n            self.buffer[self.buf_idx:] = x[:first]\n\
+      \            self.buffer[:n - first] = x[first:]\n        self.buf_idx = (self.buf_idx\
+      \ + n) % self.window_len\n        if not self.filled and end >= self.window_len:\n\
+      \            self.filled = True\n        self.since_update += n\n        if\
+      \ self.filled and self.since_update >= self.update_every:\n            self._compute_bpm()\n\
+      \            self.since_update = 0\n        out[:n] = np.float32(self.current_bpm)\n\
+      \        return n\n"
+    affinity: ''
+    alias: ''
+    bpm_max: '30.0'
+    bpm_min: '3.0'
+    comment: ''
+    corr_threshold: '0.3'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: '500'
+    window_sec: '60.0'
+  states:
+    _io_cache: ('AC BPM Estimator', 'blk', [('samp_rate', '500.0'), ('window_sec',
+      '60.0'), ('bpm_min', '3.0'), ('bpm_max', '30.0'), ('corr_threshold', '0.3')],
+      [('0', 'float', 1)], [('0', 'float', 1)], 'Autocorrelation BPM estimator (DC/drift-immune,
+      low-BPM capable).', ['bpm_max', 'bpm_min', 'corr_threshold'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2024, 1012.0]
+    rotation: 0
+    state: enabled
+- name: fir_filter_xxx_0
+  id: fir_filter_xxx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    decim: '1'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_delay: '500'
+    taps: firwin(2001, [0.1, 0.5], pass_zero=False, fs=500)
+    type: fff
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1696, 616.0]
+    rotation: 0
+    state: enabled
+- name: freq_xlating_fir_filter_xxx_0
+  id: freq_xlating_fir_filter_xxx
+  parameters:
+    affinity: ''
+    alias: ''
+    center_freq: '100000'
+    comment: ''
+    decim: '2000'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    taps: firdes.low_pass(1.0, samp_rate, 100, 50, window.WIN_HAMMING)
+    type: ccc
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1200, 216.0]
+    rotation: 0
+    state: enabled
+- name: iio_pluto_sink_0
+  id: iio_pluto_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    attenuation1: tx_gain
+    bandwidth: '20000000'
+    buffer_size: '32768'
+    comment: ''
+    cyclic: 'False'
+    filter: ''
+    filter_source: '''Auto'''
+    fpass: '0'
+    frequency: center_freq
+    fstop: '0'
+    len_tag_key: ''
+    samplerate: samp_rate
+    type: fc32
+    uri: 192.168.2.1
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [552, 356.0]
+    rotation: 0
+    state: enabled
+- name: iio_pluto_source_0
+  id: iio_pluto_source
+  parameters:
+    affinity: ''
+    alias: ''
+    bandwidth: '20000000'
+    bbdc: 'True'
+    buffer_size: '32768'
+    comment: ''
+    filter: ''
+    filter_source: '''Auto'''
+    fpass: '0'
+    frequency: center_freq
+    fstop: '0'
+    gain1: '''manual'''
+    len_tag_key: packet_len
+    manual_gain1: rx_gain
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    quadrature: 'True'
+    rfdc: 'True'
+    samplerate: samp_rate
+    type: fc32
+    uri: 192.168.2.1
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [896, 328.0]
+    rotation: 0
+    state: enabled
+- name: import_0
+  id: import
+  parameters:
+    alias: ''
+    comment: ''
+    imports: from scipy.signal import firwin
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1104, 40.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_const_sink_x_0
+  id: qtgui_const_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    alpha1: '1.0'
+    alpha10: '1.0'
+    alpha2: '1.0'
+    alpha3: '1.0'
+    alpha4: '1.0'
+    alpha5: '1.0'
+    alpha6: '1.0'
+    alpha7: '1.0'
+    alpha8: '1.0'
+    alpha9: '1.0'
+    autoscale: 'False'
+    axislabels: 'True'
+    color1: '"blue"'
+    color10: '"dark blue"'
+    color2: '"red"'
+    color3: '"green"'
+    color4: '"black"'
+    color5: '"cyan"'
+    color6: '"magenta"'
+    color7: '"yellow"'
+    color8: '"dark red"'
+    color9: '"dark green"'
+    comment: ''
+    grid: 'False'
+    gui_hint: 0,0,2,2
+    label1: ''
+    label10: ''
+    label2: ''
+    label3: ''
+    label4: ''
+    label5: ''
+    label6: ''
+    label7: ''
+    label8: ''
+    label9: ''
+    legend: 'True'
+    marker1: '0'
+    marker10: '0'
+    marker2: '0'
+    marker3: '0'
+    marker4: '0'
+    marker5: '0'
+    marker6: '0'
+    marker7: '0'
+    marker8: '0'
+    marker9: '0'
+    name: '"Raw IQ Constellation"'
+    nconnections: '1'
+    size: '500'
+    style1: '0'
+    style10: '0'
+    style2: '0'
+    style3: '0'
+    style4: '0'
+    style5: '0'
+    style6: '0'
+    style7: '0'
+    style8: '0'
+    style9: '0'
+    tr_chan: '0'
+    tr_level: '0.0'
+    tr_mode: qtgui.TRIG_MODE_FREE
+    tr_slope: qtgui.TRIG_SLOPE_POS
+    tr_tag: '""'
+    type: complex
+    update_time: '0.10'
+    width1: '1'
+    width10: '1'
+    width2: '1'
+    width3: '1'
+    width4: '1'
+    width5: '1'
+    width6: '1'
+    width7: '1'
+    width8: '1'
+    width9: '1'
+    xmax: '2'
+    xmin: '-2'
+    ymax: '0.15'
+    ymin: '-0.15'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1152, 784.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_freq_sink_x_1
+  id: qtgui_freq_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    alpha1: '1.0'
+    alpha10: '1.0'
+    alpha2: '1.0'
+    alpha3: '1.0'
+    alpha4: '1.0'
+    alpha5: '1.0'
+    alpha6: '1.0'
+    alpha7: '1.0'
+    alpha8: '1.0'
+    alpha9: '1.0'
+    autoscale: 'False'
+    average: '1.0'
+    axislabels: 'True'
+    bw: '500'
+    color1: '"blue"'
+    color10: '"dark blue"'
+    color2: '"red"'
+    color3: '"green"'
+    color4: '"black"'
+    color5: '"cyan"'
+    color6: '"magenta"'
+    color7: '"yellow"'
+    color8: '"dark red"'
+    color9: '"dark green"'
+    comment: ''
+    ctrlpanel: 'False'
+    fc: '0'
+    fftsize: '8192'
+    freqhalf: 'True'
+    grid: 'False'
+    gui_hint: 2,0,1,4
+    label: breathing Spectrum
+    label1: ''
+    label10: ''''''
+    label2: ''''''
+    label3: ''''''
+    label4: ''''''
+    label5: ''''''
+    label6: ''''''
+    label7: ''''''
+    label8: ''''''
+    label9: ''''''
+    legend: 'True'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    name: '"Breathing Spectrum"'
+    nconnections: '1'
+    norm_window: 'False'
+    showports: 'True'
+    tr_chan: '0'
+    tr_level: '0.0'
+    tr_mode: qtgui.TRIG_MODE_FREE
+    tr_tag: '""'
+    type: float
+    units: dB
+    update_time: '0.10'
+    width1: '1'
+    width10: '1'
+    width2: '1'
+    width3: '1'
+    width4: '1'
+    width5: '1'
+    width6: '1'
+    width7: '1'
+    width8: '1'
+    width9: '1'
+    wintype: window.WIN_HANN
+    ymax: '20'
+    ymin: '-80'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1712, 920.0]
+    rotation: 0
+    state: disabled
+- name: qtgui_number_sink_0
+  id: qtgui_number_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    autoscale: 'False'
+    avg: '0'
+    color1: ("black", "black")
+    color10: ("black", "black")
+    color2: ("black", "black")
+    color3: ("black", "black")
+    color4: ("black", "black")
+    color5: ("black", "black")
+    color6: ("black", "black")
+    color7: ("black", "black")
+    color8: ("black", "black")
+    color9: ("black", "black")
+    comment: ''
+    factor1: '1'
+    factor10: '1'
+    factor2: '1'
+    factor3: '1'
+    factor4: '1'
+    factor5: '1'
+    factor6: '1'
+    factor7: '1'
+    factor8: '1'
+    factor9: '1'
+    graph_type: qtgui.NUM_GRAPH_HORIZ
+    gui_hint: 0,2,1,1
+    label1: FFT BPM
+    label10: ''
+    label2: ''
+    label3: ''
+    label4: ''
+    label5: ''
+    label6: ''
+    label7: ''
+    label8: ''
+    label9: ''
+    max: '40'
+    min: '0'
+    name: '"FFT BPM"'
+    nconnections: '1'
+    type: float
+    unit1: ''
+    unit10: ''
+    unit2: ''
+    unit3: ''
+    unit4: ''
+    unit5: ''
+    unit6: ''
+    unit7: ''
+    unit8: ''
+    unit9: ''
+    update_time: '0.10'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2280, 652.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_number_sink_1
+  id: qtgui_number_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    autoscale: 'False'
+    avg: '0'
+    color1: ("black", "black")
+    color10: ("black", "black")
+    color2: ("black", "black")
+    color3: ("black", "black")
+    color4: ("black", "black")
+    color5: ("black", "black")
+    color6: ("black", "black")
+    color7: ("black", "black")
+    color8: ("black", "black")
+    color9: ("black", "black")
+    comment: ''
+    factor1: '1'
+    factor10: '1'
+    factor2: '1'
+    factor3: '1'
+    factor4: '1'
+    factor5: '1'
+    factor6: '1'
+    factor7: '1'
+    factor8: '1'
+    factor9: '1'
+    graph_type: qtgui.NUM_GRAPH_HORIZ
+    gui_hint: 0,3,1,1
+    label1: ZC BPM
+    label10: ''
+    label2: ''
+    label3: ''
+    label4: ''
+    label5: ''
+    label6: ''
+    label7: ''
+    label8: ''
+    label9: ''
+    max: '40'
+    min: '0'
+    name: '"ZC BPM"'
+    nconnections: '1'
+    type: float
+    unit1: BPM
+    unit10: ''
+    unit2: ''
+    unit3: ''
+    unit4: ''
+    unit5: ''
+    unit6: ''
+    unit7: ''
+    unit8: ''
+    unit9: ''
+    update_time: '0.10'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2288, 836.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_number_sink_2
+  id: qtgui_number_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    autoscale: 'False'
+    avg: '0'
+    color1: ("black", "black")
+    color10: ("black", "black")
+    color2: ("black", "black")
+    color3: ("black", "black")
+    color4: ("black", "black")
+    color5: ("black", "black")
+    color6: ("black", "black")
+    color7: ("black", "black")
+    color8: ("black", "black")
+    color9: ("black", "black")
+    comment: ''
+    factor1: '1'
+    factor10: '1'
+    factor2: '1'
+    factor3: '1'
+    factor4: '1'
+    factor5: '1'
+    factor6: '1'
+    factor7: '1'
+    factor8: '1'
+    factor9: '1'
+    graph_type: qtgui.NUM_GRAPH_HORIZ
+    gui_hint: 1,2,1,2
+    label1: AC BPM
+    label10: ''
+    label2: ''
+    label3: ''
+    label4: ''
+    label5: ''
+    label6: ''
+    label7: ''
+    label8: ''
+    label9: ''
+    max: '40'
+    min: '0'
+    name: '"AC BPM"'
+    nconnections: '1'
+    type: float
+    unit1: BPM
+    unit10: ''
+    unit2: ''
+    unit3: ''
+    unit4: ''
+    unit5: ''
+    unit6: ''
+    unit7: ''
+    unit8: ''
+    unit9: ''
+    update_time: '0.10'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2304, 1020.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_time_sink_x_0
+  id: qtgui_time_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    alpha1: '1.0'
+    alpha10: '1.0'
+    alpha2: '1.0'
+    alpha3: '1.0'
+    alpha4: '1.0'
+    alpha5: '1.0'
+    alpha6: '1.0'
+    alpha7: '1.0'
+    alpha8: '1.0'
+    alpha9: '1.0'
+    autoscale: 'False'
+    axislabels: 'True'
+    color1: blue
+    color10: dark blue
+    color2: red
+    color3: green
+    color4: black
+    color5: cyan
+    color6: magenta
+    color7: yellow
+    color8: dark red
+    color9: dark green
+    comment: ''
+    ctrlpanel: 'False'
+    entags: 'False'
+    grid: 'False'
+    gui_hint: 4,0,1,4
+    label1: Signal 1
+    label10: Signal 10
+    label2: Signal 2
+    label3: Signal 3
+    label4: Signal 4
+    label5: Signal 5
+    label6: Signal 6
+    label7: Signal 7
+    label8: Signal 8
+    label9: Signal 9
+    legend: 'True'
+    marker1: '-1'
+    marker10: '-1'
+    marker2: '-1'
+    marker3: '-1'
+    marker4: '-1'
+    marker5: '-1'
+    marker6: '-1'
+    marker7: '-1'
+    marker8: '-1'
+    marker9: '-1'
+    name: '"Motion Detection"'
+    nconnections: '1'
+    size: '500'
+    srate: '500'
+    stemplot: 'False'
+    style1: '1'
+    style10: '1'
+    style2: '1'
+    style3: '1'
+    style4: '1'
+    style5: '1'
+    style6: '1'
+    style7: '1'
+    style8: '1'
+    style9: '1'
+    tr_chan: '0'
+    tr_delay: '0'
+    tr_level: '0.0'
+    tr_mode: qtgui.TRIG_MODE_FREE
+    tr_slope: qtgui.TRIG_SLOPE_POS
+    tr_tag: '""'
+    type: float
+    update_time: '0.010'
+    width1: '1'
+    width10: '1'
+    width2: '1'
+    width3: '1'
+    width4: '1'
+    width5: '1'
+    width6: '1'
+    width7: '1'
+    width8: '1'
+    width9: '1'
+    ylabel: Amplitude
+    ymax: '0.5'
+    ymin: '0'
+    yunit: '""'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2264, 64.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_time_sink_x_1
+  id: qtgui_time_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    alpha1: '1.0'
+    alpha10: '1.0'
+    alpha2: '1.0'
+    alpha3: '1.0'
+    alpha4: '1.0'
+    alpha5: '1.0'
+    alpha6: '1.0'
+    alpha7: '1.0'
+    alpha8: '1.0'
+    alpha9: '1.0'
+    autoscale: 'True'
+    axislabels: 'True'
+    color1: blue
+    color10: dark blue
+    color2: red
+    color3: green
+    color4: black
+    color5: cyan
+    color6: magenta
+    color7: yellow
+    color8: dark red
+    color9: dark green
+    comment: ''
+    ctrlpanel: 'False'
+    entags: 'False'
+    grid: 'False'
+    gui_hint: 3,0,1,4
+    label1: Signal 1
+    label10: Signal 10
+    label2: Signal 2
+    label3: Signal 3
+    label4: Signal 4
+    label5: Signal 5
+    label6: Signal 6
+    label7: Signal 7
+    label8: Signal 8
+    label9: Signal 9
+    legend: 'True'
+    marker1: '-1'
+    marker10: '-1'
+    marker2: '-1'
+    marker3: '-1'
+    marker4: '-1'
+    marker5: '-1'
+    marker6: '-1'
+    marker7: '-1'
+    marker8: '-1'
+    marker9: '-1'
+    name: '"Breathing Waeform (20s)"'
+    nconnections: '1'
+    size: '10000'
+    srate: '500'
+    stemplot: 'False'
+    style1: '1'
+    style10: '1'
+    style2: '1'
+    style3: '1'
+    style4: '1'
+    style5: '1'
+    style6: '1'
+    style7: '1'
+    style8: '1'
+    style9: '1'
+    tr_chan: '0'
+    tr_delay: '0'
+    tr_level: '0.0'
+    tr_mode: qtgui.TRIG_MODE_FREE
+    tr_slope: qtgui.TRIG_SLOPE_POS
+    tr_tag: '""'
+    type: float
+    update_time: '0.010'
+    width1: '1'
+    width10: '1'
+    width2: '1'
+    width3: '1'
+    width4: '1'
+    width5: '1'
+    width6: '1'
+    width7: '1'
+    width8: '1'
+    width9: '1'
+    ylabel: Phase (rad)
+    ymax: '0.2'
+    ymin: '-0.2'
+    yunit: '""'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2120, 456.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_time_sink_x_2
+  id: qtgui_time_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    alpha1: '1.0'
+    alpha10: '1.0'
+    alpha2: '1.0'
+    alpha3: '1.0'
+    alpha4: '1.0'
+    alpha5: '1.0'
+    alpha6: '1.0'
+    alpha7: '1.0'
+    alpha8: '1.0'
+    alpha9: '1.0'
+    autoscale: 'False'
+    axislabels: 'True'
+    color1: blue
+    color10: dark blue
+    color2: red
+    color3: green
+    color4: black
+    color5: cyan
+    color6: magenta
+    color7: yellow
+    color8: dark red
+    color9: dark green
+    comment: ''
+    ctrlpanel: 'False'
+    entags: 'False'
+    grid: 'False'
+    gui_hint: ''
+    label1: Signal 1
+    label10: Signal 10
+    label2: Signal 2
+    label3: Signal 3
+    label4: Signal 4
+    label5: Signal 5
+    label6: Signal 6
+    label7: Signal 7
+    label8: Signal 8
+    label9: Signal 9
+    legend: 'True'
+    marker1: '-1'
+    marker10: '-1'
+    marker2: '-1'
+    marker3: '-1'
+    marker4: '-1'
+    marker5: '-1'
+    marker6: '-1'
+    marker7: '-1'
+    marker8: '-1'
+    marker9: '-1'
+    name: '"Motion Detected (1) / Not (0)"'
+    nconnections: '1'
+    size: '500'
+    srate: '500'
+    stemplot: 'False'
+    style1: '1'
+    style10: '1'
+    style2: '1'
+    style3: '1'
+    style4: '1'
+    style5: '1'
+    style6: '1'
+    style7: '1'
+    style8: '1'
+    style9: '1'
+    tr_chan: '0'
+    tr_delay: '0'
+    tr_level: '0.0'
+    tr_mode: qtgui.TRIG_MODE_FREE
+    tr_slope: qtgui.TRIG_SLOPE_POS
+    tr_tag: '""'
+    type: float
+    update_time: '0.10'
+    width1: '1'
+    width10: '1'
+    width2: '1'
+    width3: '1'
+    width4: '1'
+    width5: '1'
+    width6: '1'
+    width7: '1'
+    width8: '1'
+    width9: '1'
+    ylabel: Amplitude
+    ymax: '1'
+    ymin: '-1'
+    yunit: '""'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2584, 284.0]
+    rotation: 0
+    state: enabled
+
+connections:
+- [analog_sig_source_x_0, '0', iio_pluto_sink_0, '0']
+- [blocks_complex_to_arg_0, '0', epy_block_0, '0']
+- [blocks_complex_to_arg_0_0, '0', epy_block_0_0, '0']
+- [dc_blocker_xx_0, '0', blocks_complex_to_arg_0, '0']
+- [epy_block_0, '0', fir_filter_xxx_0, '0']
+- [epy_block_0_0, '0', epy_block_1, '0']
+- [epy_block_1, '0', epy_block_2, '0']
+- [epy_block_1, '0', qtgui_time_sink_x_0, '0']
+- [epy_block_2, '0', qtgui_time_sink_x_2, '0']
+- [epy_block_3, '0', qtgui_number_sink_0, '0']
+- [epy_block_4, '0', qtgui_number_sink_1, '0']
+- [epy_block_5, '0', qtgui_number_sink_2, '0']
+- [fir_filter_xxx_0, '0', epy_block_3, '0']
+- [fir_filter_xxx_0, '0', epy_block_4, '0']
+- [fir_filter_xxx_0, '0', epy_block_5, '0']
+- [fir_filter_xxx_0, '0', qtgui_freq_sink_x_1, '0']
+- [fir_filter_xxx_0, '0', qtgui_time_sink_x_1, '0']
+- [freq_xlating_fir_filter_xxx_0, '0', blocks_complex_to_arg_0_0, '0']
+- [freq_xlating_fir_filter_xxx_0, '0', dc_blocker_xx_0, '0']
+- [iio_pluto_source_0, '0', freq_xlating_fir_filter_xxx_0, '0']
+- [iio_pluto_source_0, '0', qtgui_const_sink_x_0, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.10.0

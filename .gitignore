@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# GNU Radio Companion output (regenerated from grc/*.grc)
+grc/respiratory_radar.py
+grc/respiratory_radar_epy_block_*.py
+grc/*.py.bak
+
+# Dashboard session logs
+radar_session_*.csv
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
