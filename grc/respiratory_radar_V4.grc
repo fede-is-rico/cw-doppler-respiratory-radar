@@ -1,29 +1,27 @@
 options:
   parameters:
-    author: hmbga
+    alias: ''
+    author: FIU EEE 4550/5557 Radar Systems, Group 04
     catch_exceptions: 'True'
-    category: '[GRC Hier Blocks]'
-    cmake_opt: ''
     comment: ''
     copyright: ''
-    description: ''
-    gen_cmake: 'On'
+    description: '5.95 GHz CW Doppler respiratory-rate radar on an ADALM-Pluto: 100
+      kHz IF tone, 2000:1 decimation to 500 S/s, phase unwrap, 0.1-0.5 Hz bandpass,
+      three independent BPM estimators, and a separate motion-detection path.'
     gen_linking: dynamic
     generate_options: qt_gui
+    generator_class_name: PythonQtGuiGenerator
+    generator_module: gnuradio.grc.workflows.python_qt_gui
     hier_block_src_path: '.:'
     id: respiratory_radar
     max_nouts: '0'
     output_language: python
-    placement: (0,0)
     qt_qss_theme: ''
     realtime_scheduling: ''
     run: 'True'
     run_command: '{python} -u {filename}'
-    run_options: prompt
-    sizing_mode: fixed
     thread_safe_setters: ''
-    title: Not titled yet
-    window_size: (1000,1000)
+    title: CW Doppler Respiratory Radar (V4)
   states:
     bus_sink: false
     bus_source: false
@@ -248,9 +246,9 @@ blocks:
     wrap_phase: 'False'
   states:
     _io_cache: ('Abs Phase Derivative', 'blk', [('wrap_phase', 'True')], [('0', 'float',
-      1)], [('0', 'float', 1)], "\n    Absolute phase derivative block.\n\n    Input:\n        float32
-      phase samples in radians\n\n    Output:\n        float32 |dphi/dn|\n\n    Use:\n        Connect
-      this block's output to a QT GUI Time Sink to plot it.\n    ", ['wrap_phase'])
+      1)], [('0', 'float', 1)], "\nAbsolute phase derivative block.\n\nInput:\n    float32
+      phase samples in radians\n\nOutput:\n    float32 |dphi/dn|\n\nUse:\n    Connect
+      this block's output to a QT GUI Time Sink to plot it.\n", ['wrap_phase'])
     bus_sink: false
     bus_source: false
     bus_structure: null
@@ -609,6 +607,19 @@ blocks:
     bus_source: false
     bus_structure: null
     coordinate: [1104, 40.0]
+    rotation: 0
+    state: enabled
+- name: import_1
+  id: import
+  parameters:
+    alias: ''
+    comment: ''
+    imports: from gnuradio.fft import window
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1104, 80]
     rotation: 0
     state: enabled
 - name: qtgui_const_sink_x_0
@@ -1123,7 +1134,7 @@ blocks:
     marker7: '-1'
     marker8: '-1'
     marker9: '-1'
-    name: '"Breathing Waeform (20s)"'
+    name: '"Breathing Waveform (20 s)"'
     nconnections: '1'
     size: '10000'
     srate: '500'
@@ -1290,4 +1301,4 @@ connections:
 
 metadata:
   file_format: 1
-  grc_version: 3.10.10.0
+  grc_version: 3.10.12.0
